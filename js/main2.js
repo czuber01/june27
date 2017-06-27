@@ -1,24 +1,10 @@
 var textures = new Textures()
-
-// textures.listenTo(textures, 'allLoaded', function(){
-// 	// load the textures collection first
-// 	var sd = new ScatterData()
-
-// 	var sdv = new Scatter3dView({
-// 		model: sd,
-// 		// WIDTH: $('#canvas-container').width(),
-// 		// HEIGHT: window.innerHeight,
-// 		// container: document.getElementById('canvas-container'),	
-// 		textures: textures,
-// 	})
-
-// })
+//make an array of objects that somehow relate the python array/list to here
 
 
 var sd = new ScatterData({
-	// n: 10000,
-	// url: 'pca'
-	url: 'graph'
+
+	url: 'graph/1'
 })
 
 var sdv = new Scatter3dView({

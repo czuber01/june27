@@ -7,11 +7,11 @@ from sklearn.preprocessing import MinMaxScaler
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 
-RURL = os.environ['RURL']
-MONGOURI = os.environ['MONGOURI']
-client = MongoClient(MONGOURI)
-DB = client['DMOA']
-COLL_RES = DB['userResults']
+#RURL = os.environ['RURL']
+#MONGOURI = os.environ['MONGOURI']
+#client = MongoClient(MONGOURI)
+#DB = client['DMOA']
+#COLL_RES = DB['userResults']
 
 
 def encode_rare_categories(df, colname, max=19):
@@ -51,7 +51,7 @@ def load_graph(cyjs_filename, meta_df):
 
 	df = df.merge(meta_df, how='left', left_index=True, right_index=True)
 	
-	df['neglogp'] = -np.log10(df['pvalue']+1e-4)
+	#df['neglogp'] = -np.log10(df['pvalue']+1e-4)
 
 	# df = encode_rare_categories(df, 'cell')
 	# df = encode_rare_categories(df, 'perturbation')
@@ -60,81 +60,81 @@ def load_graph(cyjs_filename, meta_df):
 	return df
 
 
-class EnrichmentResult(object):
-	"""EnrichmentResult: object for documents in the userResults collection"""
-	projection = {'_id':0}
-	default_score = 0.
-
-	def __init__(self, rid):
-		'''To retrieve a result using _id'''
-		self.rid = ObjectId(rid)
-		doc = COLL_RES.find_one({'_id': self.rid}, self.projection)
-		self.data = doc['data']
-		self.result = doc['result']
-		self.type = doc['type']
-
-	def bind_to_graph(self, df):
-		'''Bind the enrichment results to the graph df'''
-		df['scores'] = self.result['scores']
-		return df
-
-class UserInput(object):
-	"""The base class for GeneSets and Signature"""
-	config = {"direction":"mimic","combination":False}
-	headers = {'content-type':'application/json'}
-	default_score = 0. # default enrichment score for an irrelevant signature
-
-	def __init__(self, data):
-		self.data = data
-		self.result = None
-		self.type = None
-		self.rid = None
-
-	def enrich(self):
-		'''POST to Rook API to get enriched LJP signatures'''
-		self.config['method'] = self.type
-		payload = dict(self.data.items() + self.config.items())
-		response = requests.post(RURL, data=json.dumps(payload),headers=self.headers)
-		result = pd.DataFrame(response.json())
-		# Get the top N as list of records:
-		topn = {
-			'similar': result.iloc[:50].to_dict(orient='records'),
-			'opposite': result.iloc[-50:][::-1].to_dict(orient='records'),
-			}
-		# Sort scores by sig_ids to ensure consistency with the graph
-		result.sort_values(by='sig_ids', inplace=True, ascending=True)
-		self.result = {
-			'scores': result['scores'].tolist(), 
-			'topn': topn
-			}
-		return self.result
-
-	def save(self):
-		'''Save the UserInput as well as the EnrichmentResult to a document'''
-		res = COLL_RES.insert_one({
-			'result': self.result, 
-			'data': self.data, 
-			'type': self.type,
-			})
-		self.rid = res.inserted_id # <class 'bson.objectid.ObjectId'>
-		return str(self.rid)
-
-	def bind_enrichment_to_graph(self, net):
-		'''Bind the enrichment results to the graph df'''
-		df['scores'] = self.result['scores']
-		return df
-
-
-class GeneSets(UserInput):
-	"""docstring for GeneSets"""
-	def __init__(self, up_genes, dn_genes):
-		data = {'upGenes': up_genes, 'dnGenes': dn_genes}
-		UserInput.__init__(self, data)
-		self.type = 'geneSet'
-
-	def json_data(self):
-		'''Return an object to be encoded to json format'''
-		return self.data
+#class EnrichmentResult(object):
+#	"""EnrichmentResult: object for documents in the userResults collection"""
+#	projection = {'_id':0}
+#	default_score = 0.
+#
+#	def __init__(self, rid):
+#		'''To retrieve a result using _id'''
+#		self.rid = ObjectId(rid)
+#		doc = COLL_RES.find_one({'_id': self.rid}, self.projection)
+#		self.data = doc['data']
+#		self.result = doc['result']
+#		self.type = doc['type']
+#
+#	def bind_to_graph(self, df):
+#		'''Bind the enrichment results to the graph df'''
+#		df['scores'] = self.result['scores']
+#		return df
+#
+#class UserInput(object):
+#	"""The base class for GeneSets and Signature"""
+#	config = {"direction":"mimic","combination":False}
+#	headers = {'content-type':'application/json'}
+#	default_score = 0. # default enrichment score for an irrelevant signature
+#
+#	def __init__(self, data):
+#		self.data = data
+#		self.result = None
+#		self.type = None
+#		self.rid = None
+#
+#	def enrich(self):
+#		'''POST to Rook API to get enriched LJP signatures'''
+#		self.config['method'] = self.type
+#		payload = dict(self.data.items() + self.config.items())
+#		response = requests.post(RURL, data=json.dumps(payload),headers=self.headers)
+#		result = pd.DataFrame(response.json())
+#		# Get the top N as list of records:
+#		topn = {
+#			'similar': result.iloc[:50].to_dict(orient='records'),
+#			'opposite': result.iloc[-50:][::-1].to_dict(orient='records'),
+#			}
+#		# Sort scores by sig_ids to ensure consistency with the graph
+#		result.sort_values(by='sig_ids', inplace=True, ascending=True)
+#		self.result = {
+#			'scores': result['scores'].tolist(), 
+#			'topn': topn
+#			}
+#		return self.result
+#
+#	def save(self):
+#		'''Save the UserInput as well as the EnrichmentResult to a document'''
+#		res = COLL_RES.insert_one({
+#			'result': self.result, 
+#			'data': self.data, 
+#			'type': self.type,
+#			})
+#		self.rid = res.inserted_id # <class 'bson.objectid.ObjectId'>
+#		return str(self.rid)
+#
+#	def bind_enrichment_to_graph(self, net):
+#		'''Bind the enrichment results to the graph df'''
+#		df['scores'] = self.result['scores']
+#		return df
+#
+#
+#class GeneSets(UserInput):
+#	"""docstring for GeneSets"""
+#	def __init__(self, up_genes, dn_genes):
+#		data = {'upGenes': up_genes, 'dnGenes': dn_genes}
+#		UserInput.__init__(self, data)
+#		self.type = 'geneSet'
+#
+#	def json_data(self):
+#		'''Return an object to be encoded to json format'''
+#		return self.data
 
 
 

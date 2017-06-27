@@ -137,12 +137,11 @@ var Scatter3dCloud = Backbone.View.extend({
 		var metas = this.model.getAttr(metaKey)
 		// construct colors BufferAttribute
 		var colors = new Float32Array( this.model.n * 3);
- //		if (colorScale.hasOwnProperty('domain')){
-//			var frequentCategories = colorScale.domain().slice();	
-//		}else{
-//			var frequentCategories = {length: 2};
-//		}
-       var frequentCategories=colorScale.domain().slice();
+ 		if (colorScale.hasOwnProperty('domain')){
+			var frequentCategories = colorScale.domain().slice();	
+		}else{
+			var frequentCategories = {length: 2};
+		}
 		
 		if (frequentCategories.length > 3){
 			for (var i = metas.length - 1; i >= 0; i--) {
@@ -167,6 +166,8 @@ var Scatter3dCloud = Backbone.View.extend({
 	},
 
 });
+
+
 
 var ScatterData = Backbone.Model.extend({
 	// model for the data (positions) and metadata. 
@@ -250,6 +251,7 @@ var Scatter3dView = Backbone.View.extend({
 		labelKey: ['sig_id'], // which metaKey to use as labels
 		colorKey: 'dose', // which metaKey to use as colors
 		shapeKey: 'cell',
+		networkKey:'graph',
 		clouds: [], // to store Scatter3dCloud objects
 		textures: null, // the Textures collection instance
 		pointSize: 0.01, // the size of the points
@@ -267,12 +269,17 @@ var Scatter3dView = Backbone.View.extend({
 
 			self.listenTo(self.model, 'sync', function(){
 				console.log('model synced')
+				$("#renderer").remove();
+				//$("#controls").remove();
+				//$("#legend").remove();
+
 				self.setUpStage();
 				// self.colorBy(self.colorKey);
 				self.shapeBy(self.shapeKey);
 
 			});
 		});
+
 	},
 
 	setUpStage: function(){
@@ -354,7 +361,7 @@ var Scatter3dView = Backbone.View.extend({
 			this.container.appendChild( this.stats.dom );
 		}
 
-		this.addMouseEvents();
+		this.addMouseEvents(); 
 
 		// window resize event
 		$(window).on( 'resize', function(event){
@@ -398,7 +405,12 @@ var Scatter3dView = Backbone.View.extend({
 			scene.remove(scene.children[i]);
 		}
 	},
-
+	changeNetworkBy: function(key){
+		this.networkKey=key;
+	 	this.model.set('url',key);
+	 	this.model.fetch();
+	},
+	
 	shapeBy: function(metaKey){
 		// groupBy the model and init clouds
 		// update shapeKey
@@ -600,7 +612,6 @@ var Scatter3dView = Backbone.View.extend({
 		var uniqueCats = new Set(metas);
 		var nUniqueCats = uniqueCats.size;
 		uniqueCats = Array.from(uniqueCats);
-
 		// make colorScale
 		if (nUniqueCats < 11){
 			var colorScale = d3.scale.category10().domain(uniqueCats);
@@ -626,24 +637,24 @@ var Scatter3dView = Backbone.View.extend({
 		this.renderScatter();
 	},
 
-	colorByScores: function(searchResult){
-		// To color nodes by similarity scores. 
-		// The input is the response from the /search endpoint.
-		this.colorKey = 'scores';
-		// store the scores in the model
-		this.model.setAttr('scores', searchResult.scores);
-		// update the clouds by calling shapeBy
-		this.shapeBy(this.shapeKey);
-	},
+//	colorByScores: function(searchResult){
+//		// To color nodes by similarity scores. 
+//		// The input is the response from the /search endpoint.
+//		this.colorKey = 'scores';
+//		// store the scores in the model
+//		this.model.setAttr('scores', searchResult.scores);
+//		// update the clouds by calling shapeBy
+//		this.shapeBy(this.shapeKey);
+//	},
 
-	highlightQuery: function(query, metaKey){
-		// To highlight a query result, red for matched nodes and grey for unmatched nodes
-		this.colorKey = metaKey;
-		this.colorScale = function(x) {
-			return x === query ? "#cc0000" : "#cccccc";
-		};
-		this.renderScatter();
-	},
+//	highlightQuery: function(query, metaKey){
+//		// To highlight a query result, red for matched nodes and grey for unmatched nodes
+//		this.colorKey = metaKey;
+//		this.colorScale = function(x) {
+//			return x === query ? "#cc0000" : "#cccccc";
+//		};
+//		this.renderScatter();
+//	},
 
 	// sizeBy: function(metaKey){
 	// 	// Size points by a certain metaKey
