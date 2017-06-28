@@ -18,26 +18,13 @@ from werkzeug.routing import Rule, RequestRedirect
 from flask import Flask, request, redirect, render_template, send_from_directory, abort, Response
 enter_point='/helpme' 
 allcyjs=np.array(["diseases_adjmat.txt.gml.cyjs","transcriptionfactors_adjmat.txt.gml.cyjs","celltypes_adjmat.txt.gml.cyjs","ontologies_adjmatfixed.txt.gml.cyjs"])
-#"celltypes_adjmat.txt.gml.cjys","ontologies_adjmatfixed.txt.gml.cyjs"])
 allmetadata=np.array(["disall1.txt","newmetadata2.txt","celltypeall1.txt","ontologyall1.txt"])
-#pp2=Flask(__name__)
 app2 = Flask(__name__, static_url_path=enter_point, static_folder=os.getcwd())
-#CYJS="transcriptionfactors_adjmat.txt.gml.cyjs"
 
 from orm2 import *
 
 app2.debug=True
 
-#@app2.before_first_request
-#def load_globals():
-#    global meta_df, graph_df
-#    meta_df=pd.read_csv('newmetadata.txt')
-#    #cyjs_filename=os.environ['CYJS']
-#    cyjs_filename=CYJS
-#    graph_df=load_graph(cyjs_filename,meta_df)
-#    
-#    
-#    return
 
 @app2.before_first_request
 def load_globals2():
@@ -106,20 +93,17 @@ def post_to_sigine():
 	#Endpoint handling signature similarity search, POST the up/down genes 
 	#to the RURL and redirect to the result page.
 	if request.method == 'POST':
-		# retrieve data from the form 
 		up_genes = request.form.get('upGenes', '').split()
-		#down_genes = request.form.get('dnGenes', '').split()
-		# init GeneSets instance
-		gene_sets = GeneSets(up_genes)# down_genes)
-		# perform similarity search
-        #run own function
+		gene_sets = GeneSets(up_genes)
 		result = gene_sets.enrich()
-		# save gene_sets and results to MongoDB
 		rid = gene_sets.save()
 		print rid
-		return redirect(enter_point + '/result/' + rid, code=302)
+       #want a separate rid for each graph, would need to make a dict of rid's 
+       #
+		return redirect(enter_point + '/result/' + rid[0], code=302)
+#@app2.route(enter_)
  
-#called by new scatterData object    
+   #this gets called by the result javascript method
 @app2.route(enter_point + '/result/graph/<string:result_id>', methods=['GET'])
 def result(result_id):
 	"""
@@ -133,7 +117,9 @@ def result(result_id):
 
 	return graph_df_res.reset_index().to_json(orient='records')
 
-
+#we can keep one template??maybe? what about resultid? as long as url
+#changes in result method with a toggle, would need to change result_id with 
+#toggle as well, since result_id is used by the graph/url
 @app2.route(enter_point + '/result/<string:result_id>', methods=['GET'])
 def result_page(result_id):
 	#The result page.
