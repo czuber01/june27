@@ -89,7 +89,7 @@ var Controler = Backbone.View.extend({
 
 		this.model = this.scatterPlot.model;
 
-		this.listenTo(this.model, 'sync', this.render);
+		this.listenTo(this.model, 'sync',this.render)
 
 		var scatterPlot = this.scatterPlot;
 
@@ -105,6 +105,8 @@ var Controler = Backbone.View.extend({
        scatterPlot.listenTo(this,'networkChanged',function(selectedMetaKey){
           scatterPlot.changeNetworkBy(selectedMetaKey)
        });     
+
+       this.listenTo(scatterPlot,'networkChanged',this.changeSelection)
 		    
     
 
@@ -114,7 +116,7 @@ var Controler = Backbone.View.extend({
 		// set up DOMs for the controler
 		this.el = d3.select(this.container)
 			.append('div')
-			.attr('id', 'controls')
+			 .attr('id', 'controls')
 			.style('width', this.w)
 			.style('height', this.h);
 
@@ -188,7 +190,6 @@ var Controler = Backbone.View.extend({
            .text(function(d){return d;})
            .attr('value',function(d){return d;});
  
-                  
 		return this;
 	},
 
@@ -265,11 +266,10 @@ var SearchSelectize = Backbone.View.extend({
 var SigSimSearchForm = Backbone.View.extend({
 	//The <form> version of signature similarity search
 	defaults: {
-		container: document.body,
+		container: "#controls1",
 		scatterPlot: Scatter3dView,
 		example: {
 			up: ["ZNF238","ACACA","ACAT2","ACLY","ACSL3","C10ORF10","C14ORF1","CCL2","CCNG2","CD46","CDKN1A","CETN2","CLIC4","CYB5A","CYP1B1","CYP51A1","DBI","DDIT4","DHCR24","DHCR7","DSC3","DSG3","EBP","EFNA1","ELOVL5","ELOVL6","FABP7","FADS1","FADS2","FDFT1","FDPS","FGFBP1","FN1","GLUL","HMGCR","HMGCS1","HOPX","HS3ST2","HSD17B7","IDI1","IL32","INSIG1","IRS2","KHDRBS3","KRT14","KRT15","KRT6B","LDLR","LPIN1","LSS","MAP7","ME1","MSMO1","MTSS1","NFKBIA","NOV","NPC1","NSDHL","PANK3","PGD","PLA2G2A","PNRC1","PPL","PRKCH","PSAP","RDH11","SC5DL","SCD","SCEL","SDPR","SEPP1","SLC2A6","SLC31A2","SLC39A6","SMPDL3A","SNCA","SPRR1B","SQLE","SREBF1","SREBF2","STXBP1","TM7SF2","TNFAIP3","VGLL4","ZFAND5","ZNF185"],
-			//down:["ARMCX2","BST2","CA2","F12","GDF15","GPX7","IFI6","IGFBP7","KCNJ16","KRT7","MDK","NID2","NOP56","NR2F6","PDGFRA","PROM1","RRP8","SAMSN1","SCG5","SERPINE2","SLC4A4","TRIP6"]
 		}, 
 		action: 'search',
 		result_id: undefined
@@ -283,7 +283,6 @@ var SigSimSearchForm = Backbone.View.extend({
 		this.model = this.scatterPlot.model;
 
 		this.listenTo(this.model, 'sync', this.render);
-      
        // if(this.resultid){
        // 	scatterPlot.listenTo(this,'networkChanged',function(selectedMetaKey){
        //    scatterPlot.changeNetworkBy(selectedMetaKey)
@@ -294,6 +293,7 @@ var SigSimSearchForm = Backbone.View.extend({
 	},
 
 	render: function(){
+		$("#geneSet").remove();
 		//set up DOMs
 		var form = $('<form method="post" id="geneSet"></form>');
 		form.attr('action', this.action);
@@ -304,15 +304,11 @@ var SigSimSearchForm = Backbone.View.extend({
 		this.upGeneTa = $('<textarea name="upGenes" rows="5" class="form-control" required></textarea>');
 		upGeneDiv.append(this.upGeneTa);
 
-		// var dnGeneDiv = $('<div class="form-group">')
-		// dnGeneDiv.append($('<label for="dnGenes" class="control-label">Down genes</label>'));
-		// this.dnGeneTa = $('<textarea name="dnGenes" rows="5" class="form-control" required></textarea>');
-		// dnGeneDiv.append(this.dnGeneTa);
 
 		var self = this;
 		var exampleBtn = $('<button class="btn btn-xs pull-left">Example</button>').click(function(e){
 			e.preventDefault();
-			self.populateGenes(self.example.up); // self.exampleGenes.down);
+			self.populateGenes(self.example.up);
 		});
 
 		var clearBtn = $('<button class="btn btn-xs">Clear</button>').click(function(e){
@@ -364,14 +360,13 @@ var SigSimSearchForm = Backbone.View.extend({
 	populateGenes: function(upGenes){  // , dnGenes){
 		//To populate <textarea> with up/down genes
 		this.upGeneTa.val(upGenes.join('\n'));
-		//this.dnGeneTa.val(dnGenes.join('\n'))
 	},
 
 	populateInputGenes: function(result_id){
 		// Populate <textarea> with input up/down genes retrieved from the DB
 		var self = this;
 		$.getJSON('result/genes/'+this.result_id, function(geneSet){
-			self.populateGenes(geneSet.upGenes); //, geneSet.dnGenes);
+			self.populateGenes(geneSet.upGenes); 
 		});
 	},
 });

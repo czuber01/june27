@@ -185,6 +185,7 @@ var ScatterData = Backbone.Model.extend({
 	parse: function(response){
 		// called whenever a model's data is returned by the server
 		this.n = response.length;
+		this.metas=[];
 		var xyz = ['x', 'y', 'z'];
 		for (var key in response[0]){
 			if (xyz.indexOf(key) === -1){ 
@@ -249,8 +250,8 @@ var Scatter3dView = Backbone.View.extend({
 		DPR: window.devicePixelRatio,
 		container: document.body,
 		labelKey: ['sig_id'], // which metaKey to use as labels
-		colorKey: 'dose', // which metaKey to use as colors
-		shapeKey: 'cell',
+		colorKey: 'library', // which metaKey to use as colors
+		shapeKey: 'library',
 		networkKey:'graph',
 		clouds: [], // to store Scatter3dCloud objects
 		textures: null, // the Textures collection instance
@@ -270,7 +271,9 @@ var Scatter3dView = Backbone.View.extend({
 			self.listenTo(self.model, 'sync', function(){
 				console.log('model synced')
 				$("#renderer").remove();
-				//$("#controls").remove();
+				//$("#controls1").remove();
+				$("#controls").remove();
+				//$("#controls2").remove();
 				//$("#legend").remove();
 
 				self.setUpStage();
