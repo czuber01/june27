@@ -2,14 +2,43 @@
 
 from bson.objectid import ObjectId
 from pymongo import MongoClient
+import scipy.stats as stats
 
-
-client=MongoClient("localhost",27017)
-db=client.test
-genelistname=Diseasesgenesets.txt
-with open(genelistname,'r') as f:
+user=['RRM2', 'UBE2C', 'PLK1', 'IDH2', 'CDC25C', 'ANLN', 'CCNA2', 'MELK', 'ESPL1', 'CKS2', 'MCM6', 'CENPO', 'TACC3', 'CDKN3', 'RTN4', 'DTYMK', 'CDCA3', 'TOP2A', 'CKS1B', 'CDCA8', 'HJURP', 'CENPA', 'LMNB2', 'PNP', 'RECQL4', 'PBK', 'NUSAP1']
+genelistname={0:"Diseasesgeneset.txt"}
+genesetdict={}
+with open(genelistname[0],'r') as f:
+    
     for line in f:
-        print(line)
+        spl=line.split()
+        key=spl[0]
+        li=[]
+        for i in spl[1:]:
+            li.append(i)
+            genesetdict[key]=li
+print(genesetdict['5'])
+intersection=list(set(user)&set(genesetdict['5']))
+intersection=len(intersection)
+            
+if intersection>0:
+     print('we have a match')
+user=len(user)
+genelist=len(genesetdict['5'])
+total=25000
+            #use from https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.fisher_exact.html
+oddsratio, pvalue=stats.fisher_exact([[total,genelist],[user,intersection]])
+
+
+print(pvalue)
+
+
+
+#client=MongoClient("localhost",27017)
+#db=client.test
+#genelistname=Diseasesgenesets.txt
+#with open(genelistname,'r') as f:
+#    for line in f:
+#        print(line)
 
 
 #res=db.placeholder.insert_one({'hello':[1,2,3]})

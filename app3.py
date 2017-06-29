@@ -21,7 +21,7 @@ allcyjs=np.array(["diseases_adjmat.txt.gml.cyjs","transcriptionfactors_adjmat.tx
 allmetadata=np.array(["disall1.txt","newmetadata2.txt","celltypeall1.txt","ontologyall1.txt"])
 app2 = Flask(__name__, static_url_path=enter_point, static_folder=os.getcwd())
 
-from orm2 import *
+from orm3 import *
 
 app2.debug=True
 
@@ -39,6 +39,20 @@ def load_globals2():
     
     for i in range(len(cyjslist)):
         graph_df_list.append(load_graph(cyjslist[i],metadatalist[i]))
+
+# taken from https://stackoverflow.com/questions/17714571/creating-a-dictionary-from-a-txt-file-using-python   
+    genelistnames={1:'TFgeneset.txt',2:'CellTypegeneset.txt',3:'Ontologygeneset.txt',0:'Diseasesgeneset.txt'}
+    genesetlist={}
+    #each key in genesetlist corresponds to a list(of all genesets) of lists(of genes)
+    for (k,v) in genelistnames:
+        genesetlist[k]=[]
+        with open(v,'r') as f:
+            for line in f:
+                spl=line.split()
+                li=[]
+                for i in spl[1:]:
+                    li.append(i)
+                genesetlist[k].append(li)
     return 
 
 @app2.route(enter_point+'/')
@@ -98,35 +112,34 @@ def post_to_sigine():
 		result = gene_sets.enrich()
 		rid = gene_sets.save()
 		print rid
-       #want a separate rid for each graph, would need to make a dict of rid's 
-       #
-		return redirect(enter_point + '/result/' + rid[0], code=302)
-#@app2.route(enter_)
+
+		return redirect(enter_point + '/result/' + rid, code=302)
+    
  
    #this gets called by the result javascript method
-@app2.route(enter_point + '/result/graph/<string:result_id>', methods=['GET'])
-def result(result_id):
+@app2.route(enter_point + '/result/<string:graph>/<string:result_id>', methods=['GET'])
+def result(graph, result_id):
 	"""
 	Retrieve a simiarity search result using id and combine it
 	with graph layout.
 	"""
+	#graph=(graph)
+	graph_df=graph_df_list[0]    
 	# retrieve enrichment results from db
-	result_obj = EnrichmentResult(result_id)
+	result_obj = EnrichmentResult(result_id,0)
 	# bind enrichment result to the network layout
 	graph_df_res = result_obj.bind_to_graph(graph_df)
 
 	return graph_df_res.reset_index().to_json(orient='records')
 
-#we can keep one template??maybe? what about resultid? as long as url
-#changes in result method with a toggle, would need to change result_id with 
-#toggle as well, since result_id is used by the graph/url
+
 @app2.route(enter_point + '/result/<string:result_id>', methods=['GET'])
 def result_page(result_id):
 	#The result page.
 	
 	return render_template('index.html', 
 		script='result', 
-		ENTER_POINT=enter_point,
+		enter_point=enter_point,
 		result_id=result_id)
     
     
