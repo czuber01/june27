@@ -83,7 +83,7 @@ var Scatter3dCloud = Backbone.View.extend({
 	defaults: {
 		texture: null, // the THREE.Texture instance
 		data: null, // expect data to be an array of objects
-		labelKey: ['sig_id'],
+		labelKey: ['geneset'],
 		pointSize: 0.01,
 		sizeAttenuation: true, // true for 3d, false for 2d
 	},
@@ -249,10 +249,10 @@ var Scatter3dView = Backbone.View.extend({
 		HEIGHT: window.innerHeight,
 		DPR: window.devicePixelRatio,
 		container: document.body,
-		labelKey: ['sig_id'], // which metaKey to use as labels
+		labelKey: ['geneset','library'], // which metaKey to use as labels
 		colorKey: 'library', // which metaKey to use as colors
 		shapeKey: 'library',
-		networkKey:'graph',
+		//networkKey:'Diseases',
 		clouds: [], // to store Scatter3dCloud objects
 		textures: null, // the Textures collection instance
 		pointSize: 0.01, // the size of the points
@@ -410,7 +410,20 @@ var Scatter3dView = Backbone.View.extend({
 	},
 	changeNetworkBy: function(key){
 		this.networkKey=key;
-	 	this.model.set('url',key);
+		var searchid=sigSimSearch.result_id;
+		var graphtype=0;
+		if(key.localeCompare('Diseases')==0)
+			graphtype=0;
+		if(key.localeCompare('TranscriptionFactor')==0)
+			graphtype=1;
+		if(key.localeCompare('CellType')==0)
+			graphtype=2;
+		if(key.localeCompare('Ontology')==0)
+			graphtype=3;
+		if(searchid)
+		 	this.model.set('url','result/'+graphtype+'/'+searchid);
+	  		else
+	 			this.model.set('url','graph/'+graphtype);
 	 	this.model.fetch();
 	},
 	
@@ -435,7 +448,8 @@ var Scatter3dView = Backbone.View.extend({
 		// symbolTypeScale is used for retrieving a texture instance from textures collection
 		var symbolTypeScale = d3.scale.ordinal()
 			.domain(Object.keys(scatterDataSubsets))
-			.range(textures.pluck('symbolType'));
+			.range(["circle"]);
+			//.range(textures.pluck('symbolType'));
 		
 		for (var key in scatterDataSubsets){
 			var cloud = new Scatter3dCloud({
@@ -500,7 +514,7 @@ var Scatter3dView = Backbone.View.extend({
 			}
 
 			// add text canvas
-			var textCanvas = this.makeTextCanvas( geometry.attributes.label.array[idx], 
+			var textCanvas = this.makeTextCanvas(geometry.attributes.label.array[idx], 
 			    pointPosition.x, pointPosition.y, pointPosition.z,
 			    { fontsize: 24, fontface: "Ariel", textColor: {r:0, g:0, b:255, a:1.0} }); 
 
@@ -534,9 +548,9 @@ var Scatter3dView = Backbone.View.extend({
 			// var pert_id = geometry.attributes.pert_id.array[idx];
 			// var url = 'http://amp.pharm.mssm.edu/dmoa/report/' + pert_id;
 			var sig_id = geometry.attributes.sig_id.array[idx];
-			var url = 'http://amp.pharm.mssm.edu/dmoa/redirect/L1000CDS2/' + sig_id;
+			//var url = 'http://amp.pharm.mssm.edu/dmoa/redirect/L1000CDS2/' + sig_id;
 			// var url = 'http://127.0.0.1:8084/dmoa/redirect/L1000CDS2/' + sig_id;
-			window.open(url);
+			//window.open(url);
 		}
 	},
 
@@ -593,10 +607,18 @@ var Scatter3dView = Backbone.View.extend({
 
 	resetColors: function(){
 		// reset colors based on this.metaKey, do not trigger any events.
-		for (var i = this.clouds.length - 1; i >= 0; i--) {
+		if (this.colorScale.constructor === Array){
+			for (var i = 0; i<this.clouds.length; i++ ){
+				var cloud=this.clouds[i];
+				cloud.setColors(this.colorScale[i], this.colorKey)
+			};
+		}
+		else {
+			for (var i = this.clouds.length - 1; i >= 0; i--) {
 			var cloud = this.clouds[i];
 			cloud.setColors(this.colorScale, this.colorKey)
-		};
+			};
+		}	
 	},
 
 	colorBy: function(metaKey){
@@ -608,6 +630,10 @@ var Scatter3dView = Backbone.View.extend({
 
 		var meta = _.findWhere(this.model.metas, {name: metaKey});
 		var dtype = meta.type;
+		var fullrange=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b",
+		"#e377c2","#7f7f7f","#bcbd22","#17becf","#393b79","#637939","#8c6d31"];
+		var intermediaterange = ["#aec7e8","#ffbb78","#98df8a","#ff9896","#c5b0d5",
+		"#c49c94","#f7b6d2","#c7c7c7","#dbdb8d","#9edae5","#9c9ede","#cedb9c","#e7cb94"];
 		
 		if (dtype !== 'number'){
 			metas = encodeRareCategories(metas, 19);
@@ -616,15 +642,29 @@ var Scatter3dView = Backbone.View.extend({
 		var nUniqueCats = uniqueCats.size;
 		uniqueCats = Array.from(uniqueCats);
 		// make colorScale
-		if (nUniqueCats < 11){
-			var colorScale = d3.scale.category10().domain(uniqueCats);
-		} else if (nUniqueCats > 10 && dtype !== 'number') {
-			var colorScale = d3.scale.category20().domain(uniqueCats);
-		} else if (meta.name === 'scores') { // similarity scores should center at 0
+		//only available for sets with 13 or less unique categories
+		//var colorScaleLibrary=d3.scale.ordinal().domain()
+		if (dtype !== 'number') {
+			var colorScale = d3.scale.ordinal().domain(uniqueCats).range(fullrange);
+
+		} else if (meta.name === 'score') { // similarity scores should center at 0
+			var colorScale=[];
+			var metas2 = this.model.getAttr("library");
+			var uniqueCats2 = new Set(metas2);
+			uniqueCats2=Array.from(uniqueCats2);
 			var colorExtent = d3.extent(metas);
-			var colorScale = d3.scale.pow()
-				.domain([colorExtent[0], 0.5, colorExtent[1]])
-				.range(["#1f77b4", "#a8d2f0", "#ddd"]);
+			for (var i=0;i<uniqueCats2.length;i++){
+				colorScale[i]=d3.scale.pow()
+				.domain([colorExtent[0],0,colorExtent[1]])
+				.range(["#ddd",intermediaterange[i],fullrange[i]]);
+			}
+			var colorScaleBasic=d3.scale.ordinal().domain(uniqueCats2).range(fullrange);
+			this.colorScaleBasic=colorScaleBasic;
+
+			//keep the same range for all or change range by library? start with same forall
+			// var colorScale = d3.scale.pow()
+			// 	.domain([colorExtent[0], 0, colorExtent[1]])
+			// 	.range(["#ddd", "#a8d2f0", "#1f77b4"]);
 		} else {
 			var colorExtent = d3.extent(metas);
 			var min_score = colorExtent[0],
@@ -643,9 +683,9 @@ var Scatter3dView = Backbone.View.extend({
 	colorByScores: function(searchResult){
 		// To color nodes by similarity scores. 
 		// The input is the response from the /search endpoint.
-		this.colorKey = 'scores';
+		this.colorKey = 'score';
 		// store the scores in the model
-		this.model.setAttr('scores', searchResult.scores);
+		this.model.setAttr('score', searchResult.score);
 		// update the clouds by calling shapeBy
 		this.shapeBy(this.shapeKey);
 	},

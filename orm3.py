@@ -10,7 +10,7 @@ import json, requests
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-import scipy.stats as stats
+from fisher import pvalue
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 
@@ -44,7 +44,6 @@ def load_graph(cyjs_filename,meta_df):
 
 ##object was a result id
 class EnrichmentResult(object):
-    #you will have to account for multiple graphs here
 	"""EnrichmentResult: object for documents in the userResults collection"""
 	projection = {'_id':0}
 	default_score = 0.
@@ -59,8 +58,21 @@ class EnrichmentResult(object):
 	def bind_to_graph(self, df):
 		'''Bind the enrichment results to the graph df'''
 		df_ = df.copy()
-		df_['scores'] = self.result['scores']
+		df_['score'] = self.result['score']
 		return df_
+	def get_genes(self):
+		datadf=pd.DataFrame(self.data, index=range(len(self.data)))		
+		return datadf
+
+class EnrichmentResultOffline(object):
+    def __init__(self,res,graph):
+		self.result=res['result'].loc(graph)
+    
+    def bind_to_graph(self,df):
+		df_=df.copy()
+		df_['score'] = self.result
+		return df_        
+
 
 
 class UserInput(object):
@@ -74,29 +86,32 @@ class UserInput(object):
 		self.ridlist = None
 		self.resultdict={}
 #
-	def enrich(self):
-       #dont use v, just dont know how to only look at k 
-		for (k,v) in genelistnames.items():
-			fisherresponse=Fisher(self.data,k)
-			fisherresponse=fisherresponse.fishertest()
+	def enrich(self,genesetlist):
+		for i in range(len(genesetlist)):
+			fisherresponse=Fisher(self.data)
+			fisherresponse=fisherresponse.fishertest(genesetlist[i])
           #fisherresponse is now a list
           #will have to change all of this by adding your own col for sigid
-          result=pd.DataFrame({'scores':fisherresponse})
-          result['sig_id']=range(1,len(fishertest))
-			#result=pd.DataFrame(fisherresponse.items(),columns=['sig_id','scores'])
-			#result['sig_id']=pd.to_numeric(result['sig_id'])
-			result=result.sort_values(['scores'])
-			#print(result)
-			topn=result.iloc[:50]#.to_dict(orient='records')
-			topn=dict(zip(str(topn['sig_id']),topn['scores']))
-			#print(topn)
-			result=result.sort_values(['sig_id'])
-			#print(result)
+			result=pd.DataFrame({'score':fisherresponse})
+			result['score']=-np.log10(result['score']+1e-4)
+			result['sig_id']=range(1,len(fisherresponse)+1)
+#			#result=pd.DataFrame(fisherresponse.items(),columns=['sig_id','scores'])
+#			#result['sig_id']=pd.to_numeric(result['sig_id'])
+			result2=result.sort_values(['score'],ascending=False)
+			topn=result2.iloc[:50]
+			topn=dict(zip(str(topn['sig_id']),topn['score']))
+#			result=result.sort_values(['sig_id'])
+
+
+#			result=pd.DataFrame({'scores':['1']*(len(genesetlist[i])-1)})
+#			result['sig_id']=range(1,len(genesetlist[i]))
+#			topn=result.iloc[:50]
+#			topn=dict(zip(str(topn['sig_id']),topn['scores']))
 			self.result={
-				'scores':result['scores'].tolist(),
+				'score':result['score'].tolist(),
 				'topn':topn
 				}
-			self.resultdict[str(k)]=self.result
+			self.resultdict[str(i)]=self.result
 		return self.resultdict
 
     
@@ -107,7 +122,9 @@ class UserInput(object):
 			})
 		self.ridlist=res.inserted_id
 		return str(self.ridlist)
-    
+	def saveoffline(self):
+
+		return self.resultdict
 
 #
 #	def bind_enrichment_to_graph(self, net):
@@ -117,26 +134,29 @@ class UserInput(object):
 
 
 class Fisher(object):
-    def __init__(self,data,category):
-        self.data=data
-        self.genesets=genesetlist[category]
-
+    def __init__(self,data):
+        self.data=set(data)
     
-    def fishertest(self):
+    def fishertest(self,genesets):
         #learn how to use the empty, set size list!        
         #pvalues = [None] * len(self.geneset)
         pvalues=[]
-        for k in self.genesets: #for each gene set
+        for k in genesets: #for each gene set
                 #use from http://blog.nextgenetics.net/?e=16
-            intersection=list(set(self.data)&set(k))
-            intersection=len(intersection)           
+            intersection=len(self.data&set(k))
+            #intersection=len(intersection)           
             user=len(self.data)
             # k is the inner list, each element a gene
             genelist=len(k)
             total=25000
-            #use from https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.fisher_exact.html
-            oddsratio, pvalue=stats.fisher_exact([[total,genelist],[user,intersection]])
-            pvalues.append(pvalue)
+#   #use from  https://pypi.python.org/pypi/fisher/
+            if intersection==0:
+                p=1
+            else:
+                p=pvalue(total,genelist,user,intersection)
+                p=p.right_tail
+                #oddsratio, pvalue=stats.fisher_exact([[total,genelist],[user,intersection]])
+            pvalues.append(p)
               
         return pvalues 
 
@@ -147,9 +167,24 @@ class GeneSets(UserInput):
 		data = up_genes
 		UserInput.__init__(self, data)
 		self.type = 'geneSet'
-
 	def json_data(self):
 		'''Return an object to be encoded to json format'''
 		return self.data
     
-    
+#genelistnames={1:'TFgeneset.txt',2:'CellTypegeneset.txt',3:'Ontologygeneset.txt',0:'Diseasesgeneset.txt'}
+#genesetlist={}
+##each key in genesetlist corresponds to a list(of all genesets) of lists(of genes)
+#for (k,v) in genelistnames.items():
+#    genesetlist[k]=[]
+#    with open(v,'r') as f:
+#        for line in f:
+#            spl=line.split()
+#            li=[]
+#            for i in spl[1:]:
+#                li.append(i)
+#            genesetlist[k].append(li)
+#            
+#data=['suh']
+#why=GeneSets(data)
+#why2=why.enrich(genesetlist)
+#print(why2) 

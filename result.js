@@ -11,9 +11,10 @@ var sdv = new Scatter3dView({
 	// pointSize: 0.1, 
 	pointSize: 12,
 	is3d: false,
-	colorKey: 'scores',
+	colorKey: 'score',
 	shapeKey: 'library',
-	labelKey: ['sig_id', 'geneset'],
+	//labelKey: ['sig_id', 'geneset'],
+	labelKey:['geneset','library','score'],
 })
 
 var legend = new Legend({scatterPlot: sdv, h: window.innerHeight})
@@ -23,7 +24,7 @@ var controler = new Controler({scatterPlot: sdv, h: window.innerHeight-200, w: 2
 //var search = new SearchSelectize({scatterPlot: sdv, container: "#controls"})
 
 var sigSimSearch = new SigSimSearchForm({scatterPlot: sdv, container: "#controls1", result_id: result_id})
-
+controler.render();
 //var resultModalBtn = new ResultModalBtn({scatterPlot: sdv, container: document.body, result_id: result_id})
 
 //var resultModal = new ResultModal({scatterPlot: sdv});
