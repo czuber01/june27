@@ -48,12 +48,13 @@ class EnrichmentResult(object):
 	projection = {'_id':0}
 	default_score = 0.
 
-	def __init__(self, rid,graph):
+	def __init__(self, rid,testtype,graph):
 		'''To retrieve a result using _id'''
 		self.rid = ObjectId(rid)
 		doc = db.placeholder6.find_one({'_id': self.rid}, self.projection)
 		self.data = doc['data']
-		self.result = doc['result'][str(graph)]
+		self.result = doc[testtype][str(graph)]
+		self.topn=self.result['topn']
 
 	def bind_to_graph(self, df):
 		'''Bind the enrichment results to the graph df'''
@@ -63,6 +64,30 @@ class EnrichmentResult(object):
 	def get_genes(self):
 		datadf=pd.DataFrame(self.data, index=range(len(self.data)))		
 		return datadf
+	def get_topn(self,df):
+		df_=df.copy()
+		topndf=pd.DataFrame()
+		df_['score']=self.result['score']
+		df_=df_.drop('x',1)
+		df_=df_.drop('y',1)
+		df_=df_.drop('z',1)
+		df_=df_.drop('geneset2',1)
+		self.topn=[i.encode('UTF8') for i in self.topn]
+		self.topn=map(int,self.topn)
+		df_=df_.iloc[self.topn]
+		df_=df_.sort_values(['score'],ascending=False)
+		values=df_['library'].unique().tolist()
+		for i in values:			
+			df2=df_.loc[df_.library==i]
+			if(len(df2.index)>5):
+				df2=df2[:5]
+			if(len(df2.index)>0):
+				topndf=topndf.append(df2)
+		cols=topndf.columns.tolist()			
+##		cols=cols[-2:-1]+cols[:-1]+cols[-1:]
+		topndf=topndf[cols]	
+		return topndf    
+       
 
 class EnrichmentResultOffline(object):
     def __init__(self,res,graph):
@@ -82,48 +107,69 @@ class UserInput(object):
 
 	def __init__(self, data):
 		self.data = data  #one element dict for upgenes given by user
-		self.result = {}
-		self.ridlist = None
-		self.resultdict={}
+		self.fisherresult = {}
+		self.rid = None
+		self.fisherresultdict={}
+		self.otherresult={}
+		self.otherresultdict={}
 #
 	def enrich(self,genesetlist):
 		for i in range(len(genesetlist)):
 			fisherresponse=Fisher(self.data)
 			fisherresponse=fisherresponse.fishertest(genesetlist[i])
-          #fisherresponse is now a list
-          #will have to change all of this by adding your own col for sigid
+          #fisherresponse is now a list, create own sigid col
 			result=pd.DataFrame({'score':fisherresponse})
 			result['score']=-np.log10(result['score']+1e-4)
 			result['sig_id']=range(1,len(fisherresponse)+1)
-#			#result=pd.DataFrame(fisherresponse.items(),columns=['sig_id','scores'])
-#			#result['sig_id']=pd.to_numeric(result['sig_id'])
 			result2=result.sort_values(['score'],ascending=False)
-			topn=result2.iloc[:50]
-			topn=dict(zip(str(topn['sig_id']),topn['score']))
+			print(result)
+			print(result2)
+			topn=result2.iloc[:100]
+			topn['sig_id']=topn['sig_id'].astype(str)
+			#topn=dict(zip(str(topn['sig_id']),topn['score']))
+			#topn=topn.values.tolist()
+			print(topn)
 #			result=result.sort_values(['sig_id'])
 
 
-#			result=pd.DataFrame({'scores':['1']*(len(genesetlist[i])-1)})
-#			result['sig_id']=range(1,len(genesetlist[i]))
-#			topn=result.iloc[:50]
-#			topn=dict(zip(str(topn['sig_id']),topn['scores']))
-			self.result={
+			self.fisherresult={
 				'score':result['score'].tolist(),
-				'topn':topn
+				'topn':topn['sig_id'].tolist()
 				}
-			self.resultdict[str(i)]=self.result
-		return self.resultdict
+			self.fisherresultdict[str(i)]=self.fisherresult
+		return self.fisherresultdict
+	def enrichother(self,genesetlist):
+		for i in range(len(genesetlist)):
+			otherresponse=Other(self.data)
+			otherresponse=otherresponse.othertest(genesetlist[i])
+			result=pd.DataFrame({'score':otherresponse})
+			result['score']=-np.log10(result['score']+1e-4)
+			result['sig_id']=range(1,len(otherresponse)+1)
+			result2=result.sort_values(['score'],ascending=False)
+			topn=result2.iloc[:100]
+			topn['sig_id']=topn['sig_id'].astype(str)
+            
+			self.otherresult={
+				'score':result['score'].tolist(),
+				'topn':topn['sig_id'].tolist()
+				}
+			self.otherresultdict[str(i)]=self.otherresult
+		return self.otherresultdict
+			
+        
 
     
 	def save(self):
+        # change so that 
 		res=db.placeholder6.insert_one({
-			'result':self.resultdict,
+			'fishertest':self.fisherresultdict,
+			'othertest':self.otherresultdict,
 			'data':self.data
 			})
-		self.ridlist=res.inserted_id
-		return str(self.ridlist)
+		self.rid=res.inserted_id
+		return str(self.rid)
+	
 	def saveoffline(self):
-
 		return self.resultdict
 
 #
@@ -144,9 +190,8 @@ class Fisher(object):
         for k in genesets: #for each gene set
                 #use from http://blog.nextgenetics.net/?e=16
             intersection=len(self.data&set(k))
-            #intersection=len(intersection)           
             user=len(self.data)
-            # k is the inner list, each element a gene
+            # k is the inner list, each element of the list a gene
             genelist=len(k)
             total=25000
 #   #use from  https://pypi.python.org/pypi/fisher/
@@ -159,7 +204,16 @@ class Fisher(object):
             pvalues.append(p)
               
         return pvalues 
-
+class Other(object):
+	def __init__(self,data):
+		self.data=set(data)
+	def othertest(self,genesets):
+		pvalues=[]
+		for k in genesets:
+			#find pvalues here
+			p=1.0
+			pvalues.append(p)
+		return pvalues
 
 class GeneSets(UserInput):
 	"""docstring for GeneSets"""

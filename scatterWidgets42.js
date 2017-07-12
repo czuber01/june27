@@ -20,7 +20,8 @@ var Legend = Backbone.View.extend({
 		// render if the scatterPlot changed
 		this.listenTo(this.scatterPlot, 'shapeChanged', this.render)
 		this.listenTo(this.scatterPlot, 'colorChanged', this.render)
-     	this.listenTo(this.scatterPlot,'networkChanged',this.render)   
+     	this.listenTo(this.scatterPlot,'networkChanged',this.render)  
+     	this.listenTo(this.scatterPlot,'testChanged',this.render) 
 	},
 
 	setUpDOMs: function(){
@@ -43,6 +44,10 @@ var Legend = Backbone.View.extend({
 			.attr("class", "legendPanel")
 			//.attr("transform","translate(100,0)"");
 			.attr("transform", "translate(0, 0)");
+		// this.g.append('g')
+		// 	.attr('id','topn')
+		// 	.attr("class","topn")
+		// 	.attr("transform","translate(100,0)");
 	},
 
 	render: function(){
@@ -63,7 +68,7 @@ var Legend = Backbone.View.extend({
 			var colorscale=scatterPlot.colorScaleBasic;
 		}
 
-
+		
 		var legendColor = d3.legend.color()
 			//.title(scatterPlot.colorKey)
 			.title('library')
@@ -71,15 +76,105 @@ var Legend = Backbone.View.extend({
 			.cells(5)
 			.scale(colorscale);
 			//.scale(scatterPlot.colorScale);
+		//var legendScores = d3.legend.
+
 
 		this.g.select("#legendColor")
 			.call(legendColor);
+		// this.g.select("#topn")
+		// 	.call(function(d){getTopN();});
 
 		return this;
 	},
 
 });
 
+var Scores = Backbone.View.extend({
+	defaults: {
+		container: document.body,
+		scatterPlot: Scatter3dView,
+		w: 300,
+		h: 800,
+		// testtype:null,
+		// graphtype:null,
+		// result_id:null,
+	},
+
+	initialize: function(options){
+		if (options === undefined) {options = {}}
+		_.defaults(options, this.defaults)
+		_.defaults(this, options)
+		// render if the scatterPlot changed
+		//this.render();
+		this.listenTo(this.scatterPlot, 'shapeChanged', this.render)
+		this.listenTo(this.scatterPlot, 'colorChanged', this.render)
+     	this.listenTo(this.scatterPlot,'networkChanged',this.render)  
+     	this.listenTo(this.scatterPlot,'testChanged',this.render) 
+
+
+
+	},
+	render: function(){
+
+		//this.el=this.getTopN();
+     	var globaldata=null;
+     	//var table;		
+		$("#table").remove();
+		
+		this.getTopN();
+		console.log();
+		//this.tabulate
+
+		//return this;
+	},
+	getTopN: function(result_id,testtype,graphtype){
+		var result_id=this.scatterPlot.model.resultid;
+		var testtype=this.scatterPlot.testtype;
+		var graphtype=this.scatterPlot.graphtype;
+		var self=this;
+		$.getJSON('/topn/'+testtype+'/'+graphtype+"/"+result_id,
+			function(result){
+				//returns an object array that isnt evaluated
+				globaldata=result;
+				console.log(globaldata);
+				(self.tabulate());
+		});
+			
+
+		
+	},
+	tabulate: function(data){
+		var data=globaldata;
+		columns=['geneset','library','score']
+ 		var table = d3.select(this.container).append('table').attr("id","table");
+ 		var thead = table.append('thead');
+ 		var tbody=table.append('tbody');
+ 		thead.append('tr')
+ 			.selectAll('th')
+ 			.data(columns).enter()
+ 			.append('th')
+ 			.text(function (column){return column;});
+ 		var rows = tbody.selectAll('tr')
+ 			.data(data)
+ 			.enter()
+ 			.append('tr');
+ 		var cells = rows.selectAll('td')
+ 			.data(function (row){
+ 				return columns.map(function (column){
+ 					return {column: column, value: row[column]};
+ 				});
+ 			})
+ 			.enter()
+ 			.append('td')
+ 				.text(function (d){return d.value;});
+ 		console.log(table);
+ 		return table;
+ 	},
+
+
+
+
+});
 
 
 var Controler = Backbone.View.extend({
@@ -102,7 +197,9 @@ var Controler = Backbone.View.extend({
 
 		var scatterPlot = this.scatterPlot;
 
-		this.listenTo(scatterPlot, 'shapeChanged', this.changeSelection)
+		var result_id=this.model.resultid;
+
+		this.listenTo(scatterPlot, 'shapeChanged', this.changeSelection);
 
 		scatterPlot.listenTo(this, 'shapeChanged', function(selectedMetaKey){
 			scatterPlot.shapeBy(selectedMetaKey);
@@ -115,7 +212,13 @@ var Controler = Backbone.View.extend({
           scatterPlot.changeNetworkBy(selectedMetaKey)
        });     
 
-       this.listenTo(scatterPlot,'networkChanged',this.changeSelection)
+       this.listenTo(scatterPlot,'networkChanged',this.changeSelection);
+
+       scatterPlot.listenTo(this,'testChanged', function(selectedMetaKey){
+       		scatterPlot.changeTestBy(selectedMetaKey);
+       });
+
+       this.listenTo(scatterPlot,'testChanged',this.changeSelection);
 		    
     
 
@@ -203,6 +306,26 @@ var Controler = Backbone.View.extend({
            .append('option')
            .text(function(d){return d;})
            .attr('value',function(d){return d;});
+
+        if(result_id){
+        	var testControl=this.el.append('div')
+        		.attr('class','form-group')
+        		testControl.append('label')
+        		.attr('class','control-label')
+        		.text('Choose Test Type');
+        	var testSelect=testControl.append('select')
+        		.attr('id','test')
+        		.attr('class','form-control')
+        		.on('change',function(){
+        			var selectedMetaKey=d3.select('#test').property('value');
+        			self.trigger('testChanged',selectedMetaKey)
+        		});
+        	var testOptions=testSelect
+        		.selectAll('option')
+        		.data(['fishertest','othertest']).enter()
+        		.append('option')
+        		.text(function(d){return d;});
+        }
  
 		return this;
 	},
@@ -211,7 +334,10 @@ var Controler = Backbone.View.extend({
 		// change the current selected option to value
 		$('#shape').val(this.scatterPlot.shapeKey); 
 		$('#color').val(this.scatterPlot.colorKey);
-		$('#network').val(this.scatterPlot.networkKey)
+		$('#network').val(this.scatterPlot.networkKey);
+		if(result_id){
+			$('#test').val(this.scatterPlot.testKey);
+		}
 	},
 
 });

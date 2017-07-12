@@ -104,6 +104,11 @@ def get_all_sig_ids():
 def send_file(filename):
     return send_from_directory(app2.static_folder,filename)
 
+
+#should we have it that fisher is always called first? that way we know to 
+#build onto the database for other enrichments instead of overwriting
+#or there might be anpther way to check if current db is being used
+
 @app2.route(enter_point + '/search', methods=['POST'])
 def post_to_sigine():
 	#Endpoint handling signature similarity search, POST the up/down genes 
@@ -111,25 +116,28 @@ def post_to_sigine():
 	if request.method == 'POST':
 		up_genes = request.form.get('upGenes', '').split()
 		gene_sets = GeneSets(up_genes)
-		result = gene_sets.enrich(genesetlist)
+		fisherresult = gene_sets.enrich(genesetlist)
+		otherresult = gene_sets.enrichother(genesetlist)
 		#Res['result']=gene_sets.saveoffline()#new function that saves as dataframe only, for offline use
 		#return redirect(enter_point+'/result/offline')
 		rid = gene_sets.save()
 		print rid
 		return redirect(enter_point + '/result/' + rid, code=302)
     
+#@app2.route(enter_point+'/searchother', methods=['POST'])
+#def post_to_sigineother():
+#    if request.method=='POST':
+#        up_genes=request.form.get('upGenes','').split()
+#        gene_sets=GeneSets(up_genes)
+#        result=gene_sets.enrichother(genesetlist)
+#        #rid=gene_sets.saveanother()  #saves into same db as other
+#        rid=gene_sets.save()
+#        return redirect(enter_point+'/result/'+rid, code=302)
+    
 @app2.route(enter_point+'/result/offline',methods=['GET'])
 def resultoffline():
 	index=0
-	#graph=(graph)
-#	if graph is '0':
-#		index=0
-#	if graph is '1':
-#		index=1
-#	if graph is '2':
-#		index=2
-#	if graph is '3':
-#		index=3	
+
 	graph_df=graph_df_list[index]  
 
 	# retrieve enrichment results from db
@@ -143,8 +151,8 @@ def resultoffline():
 
     
    #this gets called by the result javascript method
-@app2.route(enter_point + '/result/<string:graph>/<string:result_id>', methods=['GET'])
-def result(graph, result_id):
+@app2.route(enter_point + '/result/<string:testtype>/<string:graph>/<string:result_id>', methods=['GET'])
+def result(testtype,graph, result_id):
 	"""
 	Retrieve a simiarity search result using id and combine it
 	with graph layout.
@@ -154,7 +162,7 @@ def result(graph, result_id):
 	graph_df=graph_df_list[index]  
 
 	# retrieve enrichment results from db
-	result_obj = EnrichmentResult(result_id,index)
+	result_obj = EnrichmentResult(result_id,testtype,index)
 	# bind enrichment result to the network layout
 	graph_df_res = result_obj.bind_to_graph(graph_df)
 
@@ -169,19 +177,28 @@ def result_page(result_id):
 		script='result', 
 		enter_point=enter_point,
 		result_id=result_id)
+
 @app2.route('/inputgenes/<string:result_id>',methods=['GET'])
 def gene_page(result_id):
-    result_obj=EnrichmentResult(result_id,0)
+    result_obj=EnrichmentResult(result_id,'fishertest',0)
     result_genes=result_obj.get_genes()
     return result_genes.to_json(orient='values')    
 #    
+
+@app2.route('/topn/<string:testtype>/<string:graph>/<string:result_id>',methods=['GET'])
+def topn_page(testtype,graph,result_id):
+    graph=int(graph)
+    topn=EnrichmentResult(result_id,testtype,graph)
+    topn=topn.get_topn(graph_df_list[graph]) 
+    return topn.to_json(orient='records')
+
 @app2.route(enter_point + '/result/download/<string:result_id>', methods=['POST','GET'])
 def result_download(result_id):
 	#To download the results to a csv file.
 	s = StringIO.StringIO()
 	result_df={}
 	for i in range(len(graph_df_list)):
-		result_obj = EnrichmentResult(result_id,i)
+		result_obj = EnrichmentResult(result_id,'fishertest',i)
     	# Prepare a DataFrame for the result
         #can we implement this for all 
     	graph_df=graph_df_list[i]

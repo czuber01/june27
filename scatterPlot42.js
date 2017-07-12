@@ -176,6 +176,7 @@ var ScatterData = Backbone.Model.extend({
 		n: 100, // Number of data points to retrieve, or number of data points retrieved
 		metas: [], // store information about meta [{name: 'metaKey', nUnique: nUnique, type: type}]
 		data: [], // store data
+		resultid: null,
 	},
 
 	url: function(){
@@ -253,11 +254,14 @@ var Scatter3dView = Backbone.View.extend({
 		colorKey: 'library', // which metaKey to use as colors
 		shapeKey: 'library',
 		//networkKey:'Diseases',
+		//testKey:'fishertest',
 		clouds: [], // to store Scatter3dCloud objects
 		textures: null, // the Textures collection instance
 		pointSize: 0.01, // the size of the points
 		showStats: false, // whether to show Stats
 		is3d: true, // 3d or 2d
+		testtype: 'fishertest',
+		graphtype:0,
 	},
 
 	initialize: function(options){
@@ -411,20 +415,27 @@ var Scatter3dView = Backbone.View.extend({
 	changeNetworkBy: function(key){
 		this.networkKey=key;
 		var searchid=sigSimSearch.result_id;
-		var graphtype=0;
 		if(key.localeCompare('Diseases')==0)
-			graphtype=0;
+			this.graphtype=0;
 		if(key.localeCompare('TranscriptionFactor')==0)
-			graphtype=1;
+			this.graphtype=1;
 		if(key.localeCompare('CellType')==0)
-			graphtype=2;
+			this.graphtype=2;
 		if(key.localeCompare('Ontology')==0)
-			graphtype=3;
+			this.graphtype=3;
 		if(searchid)
-		 	this.model.set('url','result/'+graphtype+'/'+searchid);
+		 	this.model.set('url','result/'+this.testtype+'/'+this.graphtype+'/'+searchid);
 	  		else
-	 			this.model.set('url','graph/'+graphtype);
+	 			this.model.set('url','graph/'+this.graphtype);
 	 	this.model.fetch();
+	},
+
+	changeTestBy: function(key){
+		var searchid=sigSimSearch.result_id;		
+		this.testkey=key;
+		this.testtype=this.testkey;
+		this.model.set('url','result/'+this.testtype+'/'+this.graphtype+'/'+searchid);
+		this.model.fetch();
 	},
 	
 	shapeBy: function(metaKey){
@@ -627,7 +638,7 @@ var Scatter3dView = Backbone.View.extend({
 		this.colorKey = metaKey;
 
 		var metas = this.model.getAttr(metaKey);
-
+		//is this other metas term different?
 		var meta = _.findWhere(this.model.metas, {name: metaKey});
 		var dtype = meta.type;
 		var fullrange=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b",
@@ -655,7 +666,8 @@ var Scatter3dView = Backbone.View.extend({
 			var colorExtent = d3.extent(metas);
 			for (var i=0;i<uniqueCats2.length;i++){
 				colorScale[i]=d3.scale.pow()
-				.domain([colorExtent[0],0,colorExtent[1]])
+				//changed from 0 to 3 to make enriched terms more apparent 
+				.domain([colorExtent[0],3,colorExtent[1]])
 				.range(["#ddd",intermediaterange[i],fullrange[i]]);
 			}
 			var colorScaleBasic=d3.scale.ordinal().domain(uniqueCats2).range(fullrange);
