@@ -16,6 +16,8 @@ import re
 from werkzeug.routing import Rule, RequestRedirect
 
 from flask import Flask, request, redirect, render_template, send_from_directory, abort, Response
+from orm2 import *
+
 enter_point='/helpme' 
 allcyjs=np.array(["diseases_adjmat.txt.gml.cyjs","transcriptionfactors_adjmat.txt.gml.cyjs","celltypes_adjmat.txt.gml.cyjs","ontologies_adjmatfixed.txt.gml.cyjs"])
 #"celltypes_adjmat.txt.gml.cjys","ontologies_adjmatfixed.txt.gml.cyjs"])
@@ -23,10 +25,13 @@ allmetadata=np.array(["disall1.txt","newmetadata2.txt","celltypeall1.txt","ontol
 #pp2=Flask(__name__)
 app2 = Flask(__name__, static_url_path=enter_point, static_folder=os.getcwd())
 #CYJS="transcriptionfactors_adjmat.txt.gml.cyjs"
-
-from orm2 import *
-
 app2.debug=True
+
+## This is important for updating the browser cached static files:
+## See: https://stackoverflow.com/questions/24670805/browser-caching-static-files-in-flask
+app2.config['SEND_FILE_MAX_AGE_DEFAULT'] = 6
+
+
 
 #@app2.before_first_request
 #def load_globals():
