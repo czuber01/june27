@@ -270,9 +270,9 @@ var Scatter3dView = Backbone.View.extend({
 
 			self.listenTo(self.model, 'sync', function(){
 				console.log('model synced')
-				$("#renderer").remove();
+				// $("#renderer").remove();
 				//$("#controls1").remove();
-				$("#controls").remove();
+				// $("#controls").remove();
 				//$("#controls2").remove();
 				//$("#legend").remove();
 
@@ -409,6 +409,9 @@ var Scatter3dView = Backbone.View.extend({
 		}
 	},
 	changeNetworkBy: function(key){
+		$("#renderer").remove();
+		$("#controls").remove();
+
 		this.networkKey=key;
 	 	this.model.set('url',key);
 	 	this.model.fetch();
